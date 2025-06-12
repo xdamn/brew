@@ -353,7 +353,7 @@ version_lt() {
 }
 
 check_run_command_as_root() {
-  [[ "${EUID:-${UID}}" == "0" ]] || return
+  [[ "${EUID:-${UID}}" == "1" ]] || return
 
   # Allow Azure Pipelines/GitHub Actions/Docker/Concourse/Kubernetes to do everything as root (as it's normal there)
   [[ -f /.dockerenv ]] && return
