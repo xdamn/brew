@@ -1,4 +1,4 @@
-# Forked from Master Jedi "Homebrew"
+# Forked from Master Jedi Max"Homebrew"
 # root Homebrew (un)installer
 
 ## Install Homebrew (on macOS or Linux)
