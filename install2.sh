@@ -422,16 +422,26 @@ install_latest_git_from_dmg() {
   ohai "Installing Python ${py_version}"
   execute_sudo installer -pkg "$py_pkg_file" -target /
 
-  # Add Python binary to PATH if needed
-  local py_bin_dir="/Library/Frameworks/Python.framework/Versions/${py_version%%.*}/bin"
-  local user_shell_file="$HOME/.zprofile"
-  [[ -n "$SHELL" && "$SHELL" =~ "bash" ]] && user_shell_file="$HOME/.bash_profile"
+  # Get console user and home directory
+  local console_user user_home shell_file py_bin_dir
+  console_user="$(stat -f '%Su' /dev/console)"
+  user_home="$(dscl . -read /Users/"$console_user" NFSHomeDirectory | cut -d ' ' -f2-)"
+  py_bin_dir="/Library/Frameworks/Python.framework/Versions/${py_version%%.*}/bin"
 
-  if ! grep -q "$py_bin_dir" "$user_shell_file" 2>/dev/null; then
-    echo "export PATH=\"$py_bin_dir:\$PATH\"" >> "$user_shell_file"
-    ohai "Added Python ${py_version%%.*} binary path to $user_shell_file"
+  # Determine correct shell profile file
+  if [[ -f "$user_home/.zprofile" || "$SHELL" == *zsh ]]; then
+    shell_file="$user_home/.zprofile"
   else
-    ohai "Python path already exists in $user_shell_file"
+    shell_file="$user_home/.bash_profile"
+  fi
+
+  # Add Python bin path to user's shell config if not already present
+  if ! grep -qs "$py_bin_dir" "$shell_file"; then
+    ohai "Adding Python path to $shell_file for $console_user"
+    echo "export PATH=\"$py_bin_dir:\$PATH\"" | sudo tee -a "$shell_file" >/dev/null
+    chown "$console_user" "$shell_file"
+  else
+    ohai "Python path already present in $shell_file"
   fi
 }
 
