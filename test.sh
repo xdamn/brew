@@ -365,6 +365,17 @@ check_run_command_as_root() {
 
 install_latest_git_from_dmg() {
   local dmg_url dmg_file volume_name pkg_path
+
+  # Install Rosetta if on Apple Silicon
+  if [[ "$(uname -m)" == "arm64" ]]; then
+    if ! /usr/bin/pgrep oahd &>/dev/null; then
+      ohai "Installing Rosetta 2 for Apple Silicon"
+      execute_sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+    else
+      ohai "Rosetta 2 already installed"
+    fi
+  fi
+
   dmg_url="$(curl -s https://sourceforge.net/projects/git-osx-installer/files/latest/download | grep -oE 'https://.*\.dmg')" || abort "Unable to get Git DMG URL"
   dmg_file="/tmp/git-latest.dmg"
 
