@@ -353,6 +353,7 @@ version_lt() {
 }
 
 check_run_command_as_root() {
+######XtianMod######
   [[ "${EUID:-${UID}}" == "1" ]] || return
 
   # Allow Azure Pipelines/GitHub Actions/Docker/Concourse/Kubernetes to do everything as root (as it's normal there)
@@ -363,6 +364,7 @@ check_run_command_as_root() {
   abort "Don't run this as root!"
 }
 
+######XtianMod######
 install_latest_git_from_dmg() {
   local dmg_url dmg_file volume_name pkg_path
 
@@ -422,26 +424,36 @@ install_latest_git_from_dmg() {
   ohai "Installing Python ${py_version}"
   execute_sudo installer -pkg "$py_pkg_file" -target /
 
-  # Get console user and home directory
+  # Get console user and their home directory
   local console_user user_home shell_file py_bin_dir
   console_user="$(stat -f '%Su' /dev/console)"
   user_home="$(dscl . -read /Users/"$console_user" NFSHomeDirectory | cut -d ' ' -f2-)"
   py_bin_dir="/Library/Frameworks/Python.framework/Versions/${py_version%%.*}/bin"
 
-  # Determine correct shell profile file
+  # Choose correct shell file
   if [[ -f "$user_home/.zprofile" || "$SHELL" == *zsh ]]; then
     shell_file="$user_home/.zprofile"
   else
     shell_file="$user_home/.bash_profile"
   fi
 
-  # Add Python bin path to user's shell config if not already present
+  # Add Python path to user's shell config
   if ! grep -qs "$py_bin_dir" "$shell_file"; then
     ohai "Adding Python path to $shell_file for $console_user"
     echo "export PATH=\"$py_bin_dir:\$PATH\"" | sudo tee -a "$shell_file" >/dev/null
     chown "$console_user" "$shell_file"
   else
     ohai "Python path already present in $shell_file"
+  fi
+
+  # Create symlinks for python3 and pip3 if missing
+  if [[ ! -L /usr/local/bin/python3 ]]; then
+    execute_sudo ln -s "$py_bin_dir/python3" /usr/local/bin/python3
+    ohai "Linked python3 to /usr/local/bin/python3"
+  fi
+  if [[ ! -L /usr/local/bin/pip3 ]]; then
+    execute_sudo ln -s "$py_bin_dir/pip3" /usr/local/bin/pip3
+    ohai "Linked pip3 to /usr/local/bin/pip3"
   fi
 }
 
@@ -459,6 +471,7 @@ should_install_command_line_tools() {
       ! [[ -e "/usr/include/iconv.h" ]]
   fi
 }
+######XtianMod######
 
 get_permission() {
   "${STAT_PRINTF[@]}" "${PERMISSION_FORMAT}" "$1"
@@ -926,6 +939,7 @@ then
   fi
 fi
 
+######XtianMod######
 USABLE_GIT=/usr/local/bin/git
 if [[ -n "${HOMEBREW_ON_LINUX-}" ]]
 then
@@ -1048,7 +1062,8 @@ ohai "Downloading and installing Homebrew..."
       cd "${HOMEBREW_REPOSITORY}" >/dev/null || return
     ) || exit 1
   fi
-  
+
+  ######XtianMod######
   #execute "${HOMEBREW_PREFIX}/bin/brew" "update" "--force" "--quiet"
 ) || exit 1
 
