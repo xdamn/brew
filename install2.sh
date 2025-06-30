@@ -363,6 +363,78 @@ check_run_command_as_root() {
   abort "Don't run this as root!"
 }
 
+install_latest_git_from_dmg() {
+  local dmg_url dmg_file volume_name pkg_path
+
+  # Install Rosetta if on Apple Silicon
+  if [[ "$(uname -m)" == "arm64" ]]; then
+    if ! /usr/bin/pgrep oahd &>/dev/null; then
+      ohai "Installing Rosetta 2 for Apple Silicon"
+      execute_sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+    else
+      ohai "Rosetta 2 already installed"
+    fi
+  fi
+
+  # Install Git from SourceForge
+  dmg_url="$(curl -s https://sourceforge.net/projects/git-osx-installer/files/latest/download | grep -oE 'https://.*\.dmg')" || abort "Unable to get Git DMG URL"
+  dmg_file="/tmp/git-latest.dmg"
+
+  ohai "Downloading latest Git for macOS from SourceForge"
+  curl -L "$dmg_url" -o "$dmg_file" || abort "Failed to download Git DMG"
+
+  ohai "Mounting Git DMG"
+  volume_name=$(hdiutil attach "$dmg_file" -nobrowse | awk -F'\t' '/Volumes/ {print $3; exit}') || abort "Failed to mount DMG"
+
+  pkg_path="$(find "$volume_name" -name '*.pkg' | head -n1)"
+  [[ -n "$pkg_path" ]] || abort "Git installer package not found in mounted DMG"
+
+  ohai "Installing Git from package"
+  execute_sudo installer -pkg "$pkg_path" -target /
+
+  ohai "Unmounting Git DMG"
+  hdiutil detach "$volume_name" -quiet
+
+  [[ -x /usr/local/bin/git ]] || abort "Git was not installed at /usr/local/bin/git"
+  ohai "Git successfully installed to /usr/local/bin/git"
+
+  # Install latest full Python pkg from python.org (macOS 11+ universal2)
+  local py_version_list py_version py_url py_pkg_file found=0
+  py_version_list=($(curl -s https://www.python.org/ftp/python/ | grep -oE 'href="3\.[0-9]+(\.[0-9]+)?/' | cut -d'"' -f2 | tr -d / | sort -Vr))
+
+  for py_version in "${py_version_list[@]}"; do
+    py_url="https://www.python.org/ftp/python/${py_version}/python-${py_version}-macos11.pkg"
+    py_pkg_file="/tmp/python-${py_version}.pkg"
+
+    ohai "Trying to download Python ${py_version} from python.org"
+    if curl -L --fail "$py_url" -o "$py_pkg_file"; then
+      found=1
+      break
+    else
+      warn "Failed to download $py_url, trying previous version..."
+    fi
+  done
+
+  if [[ "$found" -ne 1 ]]; then
+    abort "Unable to download any recent Python macOS installer."
+  fi
+
+  ohai "Installing Python ${py_version}"
+  execute_sudo installer -pkg "$py_pkg_file" -target /
+
+  # Add Python binary to PATH if needed
+  local py_bin_dir="/Library/Frameworks/Python.framework/Versions/${py_version%%.*}/bin"
+  local user_shell_file="$HOME/.zprofile"
+  [[ -n "$SHELL" && "$SHELL" =~ "bash" ]] && user_shell_file="$HOME/.bash_profile"
+
+  if ! grep -q "$py_bin_dir" "$user_shell_file" 2>/dev/null; then
+    echo "export PATH=\"$py_bin_dir:\$PATH\"" >> "$user_shell_file"
+    ohai "Added Python ${py_version%%.*} binary path to $user_shell_file"
+  else
+    ohai "Python path already exists in $user_shell_file"
+  fi
+}
+
 should_install_command_line_tools() {
   if [[ -n "${HOMEBREW_ON_LINUX-}" ]]
   then
@@ -371,9 +443,9 @@ should_install_command_line_tools() {
 
   if version_gt "${macos_version}" "10.13"
   then
-    ! [[ -e "/Library/Developer/CommandLineTools/usr/bin/git" ]]
+    ! [[ -e "/usr/local/bin/git" ]]
   else
-    ! [[ -e "/Library/Developer/CommandLineTools/usr/bin/git" ]] ||
+    ! [[ -e "/usr/local/bin/git" ]] ||
       ! [[ -e "/usr/include/iconv.h" ]]
   fi
 }
@@ -839,51 +911,12 @@ fi
 
 if should_install_command_line_tools && version_ge "${macos_version}" "10.13"
 then
-  ohai "Searching online for the Command Line Tools"
-  # This temporary file prompts the 'softwareupdate' utility to list the Command Line Tools
-  clt_placeholder="/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
-  execute_sudo "${TOUCH[@]}" "${clt_placeholder}"
-
-  clt_label_command="/usr/sbin/softwareupdate -l |
-                      grep -B 1 -E 'Command Line Tools' |
-                      awk -F'*' '/^ *\\*/ {print \$2}' |
-                      sed -e 's/^ *Label: //' -e 's/^ *//' |
-                      sort -V |
-                      tail -n1"
-  clt_label="$(chomp "$(/bin/bash -c "${clt_label_command}")")"
-
-  if [[ -n "${clt_label}" ]]
-  then
-    ohai "Installing ${clt_label}"
-    execute_sudo "/usr/sbin/softwareupdate" "-i" "${clt_label}"
-    execute_sudo "/usr/bin/xcode-select" "--switch" "/Library/Developer/CommandLineTools"
+  if [[ -n "${HOMEBREW_ON_MACOS-}" ]] && ! [[ -x "/usr/local/bin/git" ]]; then
+    install_latest_git_from_dmg
   fi
-  execute_sudo "/bin/rm" "-f" "${clt_placeholder}"
 fi
 
-# Headless install may have failed, so fallback to original 'xcode-select' method
-if should_install_command_line_tools && test -t 0
-then
-  ohai "Installing the Command Line Tools (expect a GUI popup):"
-  execute "/usr/bin/xcode-select" "--install"
-  echo "Press any key when the installation has completed."
-  getc
-  execute_sudo "/usr/bin/xcode-select" "--switch" "/Library/Developer/CommandLineTools"
-fi
-
-if [[ -n "${HOMEBREW_ON_MACOS-}" ]] && ! output="$(/usr/bin/xcrun clang 2>&1)" && [[ "${output}" == *"license"* ]]
-then
-  abort "$(
-    cat <<EOABORT
-You have not agreed to the Xcode license.
-Before running the installer again please agree to the license by opening
-Xcode.app or running:
-    sudo xcodebuild -license
-EOABORT
-  )"
-fi
-
-USABLE_GIT=/usr/bin/git
+USABLE_GIT=/usr/local/bin/git
 if [[ -n "${HOMEBREW_ON_LINUX-}" ]]
 then
   USABLE_GIT="$(find_tool git)"
@@ -905,7 +938,7 @@ EOABORT
 EOABORT
     )"
   fi
-  if [[ "${USABLE_GIT}" != /usr/bin/git ]]
+  if [[ "${USABLE_GIT}" != /usr/local/bin/git ]]
   then
     export HOMEBREW_GIT_PATH="${USABLE_GIT}"
     ohai "Found Git: ${HOMEBREW_GIT_PATH}"
@@ -997,7 +1030,7 @@ ohai "Downloading and installing Homebrew..."
       execute "${USABLE_GIT}" "config" "remote.origin.fetch" "+refs/heads/*:refs/remotes/origin/*"
       execute "${USABLE_GIT}" "config" "--bool" "core.autocrlf" "false"
       execute "${USABLE_GIT}" "config" "--bool" "core.symlinks" "true"
-      retry 5 "${USABLE_GIT}" "fetch" "--force" "${quiet_progress[@]}" \
+      retry 5 "${USABLE_GIT}" "fetch"  "${quiet_progress[@]}" \
         "origin" "refs/heads/master:refs/remotes/origin/master"
       execute "${USABLE_GIT}" "remote" "set-head" "origin" "--auto" >/dev/null
       execute "${USABLE_GIT}" "reset" "--hard" "origin/master"
@@ -1006,7 +1039,15 @@ ohai "Downloading and installing Homebrew..."
     ) || exit 1
   fi
 
-  execute "${HOMEBREW_PREFIX}/bin/brew" "update" "--force" "--quiet"
+  consoleuser=$(stat -f "%Su" /dev/console)
+
+  mkdir -p /Users/$consoleuser/Library/Caches/Homebrew 2>/dev/null
+  mkdir -p /opt/homebrew 2>/dev/null
+
+  sudo chown -R "$consoleuser" /opt/homebrew/ 2>/dev/null
+  sudo chown -R "$consoleuser" /Users/$consoleuser/Library/Caches/Homebrew 2>/dev/null
+  
+  #execute "${HOMEBREW_PREFIX}/bin/brew" "update" "--force" "--quiet"
 ) || exit 1
 
 if [[ ":${PATH}:" != *":${HOMEBREW_PREFIX}/bin:"* ]]
