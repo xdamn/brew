@@ -398,28 +398,40 @@ install_latest_git_from_dmg() {
   [[ -x /usr/local/bin/git ]] || abort "Git was not installed at /usr/local/bin/git"
   ohai "Git successfully installed to /usr/local/bin/git"
 
-  # Install Python from python.org
-  local py_pkg_url py_pkg_file py_pkg_installer
-  py_pkg_url="$(curl -s https://www.python.org/ftp/python/ | grep -Eo 'https://www.python.org/ftp/python/[0-9.]+/' | sort -V | tail -n1)macosx10.9.pkg"
-  py_pkg_url="${py_pkg_url/python.org\/ftp/python.org\/ftp\/python}"
-  py_pkg_file="/Users/Shared/python-latest.pkg"
+  # Install latest full Python pkg from python.org (macOS 11+ universal2)
+  local py_version_list py_version py_url py_pkg_file found=0
+  py_version_list=($(curl -s https://www.python.org/ftp/python/ | grep -oE 'href="3\.[0-9]+(\.[0-9]+)?/' | cut -d'"' -f2 | tr -d / | sort -Vr))
 
-  ohai "Downloading latest Python installer from python.org"
-  curl -L "https://www.python.org/ftp/python/${py_pkg_url}" -o "$py_pkg_file" || abort "Failed to download Python pkg"
+  for py_version in "${py_version_list[@]}"; do
+    py_url="https://www.python.org/ftp/python/${py_version}/python-${py_version}-macos11.pkg"
+    py_pkg_file="/tmp/python-${py_version}.pkg"
 
-  ohai "Installing Python from package"
+    ohai "Trying to download Python ${py_version} from python.org"
+    if curl -L --fail "$py_url" -o "$py_pkg_file"; then
+      found=1
+      break
+    else
+      warn "Failed to download $py_url, trying previous version..."
+    fi
+  done
+
+  if [[ "$found" -ne 1 ]]; then
+    abort "Unable to download any recent Python macOS installer."
+  fi
+
+  ohai "Installing Python ${py_version}"
   execute_sudo installer -pkg "$py_pkg_file" -target /
 
-  # Update shell PATH if not already included
-  local py_bin_dir="/Library/Frameworks/Python.framework/Versions/3.*/bin"
+  # Add Python binary to PATH if needed
+  local py_bin_dir="/Library/Frameworks/Python.framework/Versions/${py_version%%.*}/bin"
   local user_shell_file="$HOME/.zprofile"
   [[ -n "$SHELL" && "$SHELL" =~ "bash" ]] && user_shell_file="$HOME/.bash_profile"
 
-  if ! grep -q 'Python.framework/Versions' "$user_shell_file" 2>/dev/null; then
-    echo 'export PATH="/Library/Frameworks/Python.framework/Versions/3.x/bin:$PATH"' >> "$user_shell_file"
-    ohai "Added Python binary path to $user_shell_file"
+  if ! grep -q "$py_bin_dir" "$user_shell_file" 2>/dev/null; then
+    echo "export PATH=\"$py_bin_dir:\$PATH\"" >> "$user_shell_file"
+    ohai "Added Python ${py_version%%.*} binary path to $user_shell_file"
   else
-    ohai "Python path already in $user_shell_file"
+    ohai "Python path already exists in $user_shell_file"
   fi
 }
 
