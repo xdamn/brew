@@ -868,18 +868,6 @@ then
   fi
 fi
 
-if [[ -n "${HOMEBREW_ON_MACOS-}" ]] && ! output="$(/usr/bin/xcrun clang 2>&1)" && [[ "${output}" == *"license"* ]]
-then
-  abort "$(
-    cat <<EOABORT
-You have not agreed to the Xcode license.
-Before running the installer again please agree to the license by opening
-Xcode.app or running:
-    sudo xcodebuild -license
-EOABORT
-  )"
-fi
-
 USABLE_GIT=/usr/local/bin/git
 if [[ -n "${HOMEBREW_ON_LINUX-}" ]]
 then
