@@ -1030,7 +1030,7 @@ ohai "Downloading and installing Homebrew..."
       execute "${USABLE_GIT}" "config" "remote.origin.fetch" "+refs/heads/*:refs/remotes/origin/*"
       execute "${USABLE_GIT}" "config" "--bool" "core.autocrlf" "false"
       execute "${USABLE_GIT}" "config" "--bool" "core.symlinks" "true"
-      retry 5 "${USABLE_GIT}" "fetch" "--force" "${quiet_progress[@]}" \
+      retry 5 "${USABLE_GIT}" "fetch"  "${quiet_progress[@]}" \
         "origin" "refs/heads/master:refs/remotes/origin/master"
       execute "${USABLE_GIT}" "remote" "set-head" "origin" "--auto" >/dev/null
       execute "${USABLE_GIT}" "reset" "--hard" "origin/master"
@@ -1039,7 +1039,15 @@ ohai "Downloading and installing Homebrew..."
     ) || exit 1
   fi
 
-  execute "${HOMEBREW_PREFIX}/bin/brew" "update" "--force" "--quiet"
+  consoleuser=$(stat -f "%Su" /dev/console)
+
+  mkdir -p /Users/$consoleuser/Library/Caches/Homebrew 2>/dev/null
+  mkdir -p /opt/homebrew 2>/dev/null
+
+  sudo chown -R "$consoleuser" /opt/homebrew/ 2>/dev/null
+  sudo chown -R "$consoleuser" /Users/$consoleuser/Library/Caches/Homebrew 2>/dev/null
+  
+  #execute "${HOMEBREW_PREFIX}/bin/brew" "update" "--force" "--quiet"
 ) || exit 1
 
 if [[ ":${PATH}:" != *":${HOMEBREW_PREFIX}/bin:"* ]]
