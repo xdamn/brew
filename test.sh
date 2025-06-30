@@ -402,7 +402,7 @@ install_latest_git_from_dmg() {
   local py_pkg_url py_pkg_file py_pkg_installer
   py_pkg_url="$(curl -s https://www.python.org/ftp/python/ | grep -Eo 'https://www.python.org/ftp/python/[0-9.]+/' | sort -V | tail -n1)macosx10.9.pkg"
   py_pkg_url="${py_pkg_url/python.org\/ftp/python.org\/ftp\/python}"
-  py_pkg_file="/tmp/python-latest.pkg"
+  py_pkg_file="/Users/Shared/python-latest.pkg"
 
   ohai "Downloading latest Python installer from python.org"
   curl -L "https://www.python.org/ftp/python/${py_pkg_url}" -o "$py_pkg_file" || abort "Failed to download Python pkg"
