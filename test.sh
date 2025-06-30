@@ -376,13 +376,14 @@ install_latest_git_from_dmg() {
     fi
   fi
 
+  # Install Git from SourceForge
   dmg_url="$(curl -s https://sourceforge.net/projects/git-osx-installer/files/latest/download | grep -oE 'https://.*\.dmg')" || abort "Unable to get Git DMG URL"
   dmg_file="/tmp/git-latest.dmg"
 
   ohai "Downloading latest Git for macOS from SourceForge"
   curl -L "$dmg_url" -o "$dmg_file" || abort "Failed to download Git DMG"
 
-  ohai "Mounting DMG"
+  ohai "Mounting Git DMG"
   volume_name=$(hdiutil attach "$dmg_file" -nobrowse | awk -F'\t' '/Volumes/ {print $3; exit}') || abort "Failed to mount DMG"
 
   pkg_path="$(find "$volume_name" -name '*.pkg' | head -n1)"
@@ -391,11 +392,35 @@ install_latest_git_from_dmg() {
   ohai "Installing Git from package"
   execute_sudo installer -pkg "$pkg_path" -target /
 
-  ohai "Unmounting DMG"
+  ohai "Unmounting Git DMG"
   hdiutil detach "$volume_name" -quiet
 
   [[ -x /usr/local/bin/git ]] || abort "Git was not installed at /usr/local/bin/git"
   ohai "Git successfully installed to /usr/local/bin/git"
+
+  # Install Python from python.org
+  local py_pkg_url py_pkg_file py_pkg_installer
+  py_pkg_url="$(curl -s https://www.python.org/ftp/python/ | grep -Eo 'https://www.python.org/ftp/python/[0-9.]+/' | sort -V | tail -n1)macosx10.9.pkg"
+  py_pkg_url="${py_pkg_url/python.org\/ftp/python.org\/ftp\/python}"
+  py_pkg_file="/tmp/python-latest.pkg"
+
+  ohai "Downloading latest Python installer from python.org"
+  curl -L "https://www.python.org/ftp/python/${py_pkg_url}" -o "$py_pkg_file" || abort "Failed to download Python pkg"
+
+  ohai "Installing Python from package"
+  execute_sudo installer -pkg "$py_pkg_file" -target /
+
+  # Update shell PATH if not already included
+  local py_bin_dir="/Library/Frameworks/Python.framework/Versions/3.*/bin"
+  local user_shell_file="$HOME/.zprofile"
+  [[ -n "$SHELL" && "$SHELL" =~ "bash" ]] && user_shell_file="$HOME/.bash_profile"
+
+  if ! grep -q 'Python.framework/Versions' "$user_shell_file" 2>/dev/null; then
+    echo 'export PATH="/Library/Frameworks/Python.framework/Versions/3.x/bin:$PATH"' >> "$user_shell_file"
+    ohai "Added Python binary path to $user_shell_file"
+  else
+    ohai "Python path already in $user_shell_file"
+  fi
 }
 
 should_install_command_line_tools() {
