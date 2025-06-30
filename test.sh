@@ -43,14 +43,13 @@ version_lt() {
 
 if should_install_command_line_tools && version_ge "${macos_version}" "10.13"
 then
-  if ! command -v git >/dev/null 2>&1; then
-    ohai "Git not found. Installing latest Git from kernel.org..."
+  if [[ ! -x /usr/local/bin/git ]]; then
+    ohai "Git not found at /usr/local/bin/git. Installing latest Git from kernel.org..."
 
     GIT_SRC_DIR="/tmp/git-src"
     mkdir -p "$GIT_SRC_DIR"
     cd "$GIT_SRC_DIR"
 
-    # Get latest Git version number from kernel.org
     latest_git_version="$(curl -s https://mirrors.edge.kernel.org/pub/software/scm/git/ | \
       grep -oE 'git-[0-9]+\.[0-9]+\.[0-9]+\.tar\.xz' | \
       sort -V | tail -n1 | sed 's/git-\(.*\)\.tar\.xz/\1/')"
@@ -80,7 +79,7 @@ then
     cd /
     rm -rf "$GIT_SRC_DIR"
   else
-    ohai "Git is already installed, skipping installation."
+    ohai "Git already installed at /usr/local/bin/git. Skipping installation."
   fi
 else
   ohai "Skipping Git install. Version too low or not required."
